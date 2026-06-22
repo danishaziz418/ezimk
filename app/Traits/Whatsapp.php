@@ -8,7 +8,9 @@ use App\Models\User;
 use App\Models\Device;
 use App\Models\Template;
 use App\Models\Smstransaction;
+use App\Models\Webhook;
 use Http;
+use Throwable;
 trait Whatsapp
 {
     private function messageSend($data,$from, $reciver,$type,$filter=false,$delay = 0)
@@ -471,6 +473,57 @@ trait Whatsapp
         $log->template_id = $data['template_id'] ?? null;
         $log->type = $data['type'] ?? null;
         $log->save();
+
+        $this->dispatchMessageWebhook($log);
+    }
+
+    private function dispatchMessageWebhook(Smstransaction $log): void
+    {
+        if (empty($log->device_id)) {
+            return;
+        }
+
+        $device = Device::where('id', $log->device_id)->first();
+
+        if (empty($device?->hook_url)) {
+            return;
+        }
+
+        $payload = [
+            'payload' => [
+                'type' => 'MESSAGE_SENT',
+                'data' => [
+                    'message_id' => $log->id,
+                    'request_type' => $log->type,
+                    'app_id' => $log->app_id,
+                    'template_id' => $log->template_id,
+                    'from' => $log->from,
+                    'to' => $log->to,
+                    'device_id' => $log->device_id,
+                    'created_at' => optional($log->created_at)->toDateTimeString(),
+                ],
+            ],
+            'sender' => $log->from ?? '',
+            'receiver' => $log->to ?? '',
+        ];
+
+        $hook = new Webhook;
+        $hook->device_id = $device->id;
+        $hook->user_id = $log->user_id ?? $device->user_id;
+        $hook->payload = json_encode($payload);
+        $hook->hook = $device->hook_url;
+        $hook->save();
+
+        try {
+            $response = Http::timeout(10)->post($hook->hook, $payload);
+            $hook->status = $response->successful() ? 1 : 0;
+            $hook->status_code = $response->status();
+        } catch (Throwable $e) {
+            $hook->status = 0;
+            $hook->status_code = 500;
+        }
+
+        $hook->save();
     }
 
 }
