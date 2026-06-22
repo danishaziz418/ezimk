@@ -222,14 +222,24 @@ class BulkController extends Controller
             $message = $request->data[0]['message']['conversation'] ?? null;
 
             if($device->hook_url){
+            $payload = [
+                'payload' => [
+                    'type' => 'MESSAGE_RECEIVED',
+                    'data' => [
+                        'from' => $request_from ?? '',
+                        'to' => $device->phone ?? '',
+                        'device_id' => $device->id,
+                        'message' => $message ?? '',
+                        'received_at' => now()->toDateTimeString(),
+                    ],
+                ],
+                'sender' => $request_from ?? '',
+                'receiver' => $device->phone ?? '',
+            ];
             $hook = new Webhook;
             $hook->device_id = $device->id;
             $hook->user_id = $device->user_id;
-            $hook->payload = json_encode([
-                'payload'=> $request->all(), 
-                'sender'=> $request_from ?? '',
-                'receiver'=> $device->phone ?? '',
-            ]);
+            $hook->payload = json_encode($payload);
             $hook->hook = $device->hook_url;
             $hook->save();
             $this->dispatchWebhook($hook);
