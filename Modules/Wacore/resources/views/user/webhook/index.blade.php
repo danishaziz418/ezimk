@@ -94,6 +94,7 @@
 								<tr>
 									<th>{{ __('Device') }}</th>
 									<th>{{ __('Hook Url') }}</th>
+									<th>{{ __('Event') }}</th>
 									<th>{{ __('Payload') }}</th>
 									<th>{{ __('Status') }}</th>
 									<th>{{ __('Http Status') }}</th>
@@ -109,8 +110,15 @@
 									<td>
 										{{ $hook->hook }}
 									</td>
+									@php
+										$payload = json_decode($hook->payload, true);
+										$event = $payload['payload']['type'] ?? 'Unknown';
+									@endphp
 									<td>
-										<textarea class="form-control">{{ $hook->payload }}</textarea>
+										<span class="badge badge-{{ $event == 'MESSAGE_RECEIVED' ? 'info' : ($event == 'MESSAGE_SENT' ? 'primary' : 'secondary') }}">{{ $event }}</span>
+									</td>
+									<td>
+										<textarea class="form-control" rows="5">{{ $hook->payload }}</textarea>
 									</td>
 									<td><span class="badge badge-{{ $hook->status == 1 ? 'success' : ($hook->status == 2 ? 'warning' : 'danger') }}">{{ $hook->status == 1 ? 'Sent' : ($hook->status == 2 ? 'pending' : 'Failed') }}</span></td>
 									<td>

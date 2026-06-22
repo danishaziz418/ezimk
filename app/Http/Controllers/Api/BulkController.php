@@ -230,7 +230,7 @@ class BulkController extends Controller
                 ? Carbon::createFromTimestamp((int) $incomingMessage['messageTimestamp'])->toDateTimeString()
                 : now()->toDateTimeString();
 
-            if($device->hook_url){
+            if($device->hook_url && $message !== null){
             $payload = [
                 'payload' => [
                     'type' => 'MESSAGE_RECEIVED',
