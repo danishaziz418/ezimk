@@ -124,6 +124,7 @@ class BulkController extends Controller
                 $logs['to']=$request->to;
                 $logs['template_id']=$template->id ?? null;
                 $logs['type']='from_api';
+                $logs['whatsapp_message_id']=$response['whatsapp_message_id'] ?? null;
 
                 $this->saveLog($logs);
 
@@ -298,12 +299,12 @@ class BulkController extends Controller
                   $logs['type']='chatbot';
                   $logs['reply_to_message_id']=$incomingMessageId;
                   $logs['conversation_id']=$conversationId;
-                  $this->saveLog($logs);
-                 
                 $body= array('text' => $reply->reply);
 
              
                 $response= $this->messageSend($body,$device->id,$request_from,'plain-text',true);
+                $logs['whatsapp_message_id']=$response['whatsapp_message_id'] ?? null;
+                $this->saveLog($logs);
                   
                  return response()->json([
                     'message'  => array('text' => $reply->reply),
@@ -335,9 +336,9 @@ class BulkController extends Controller
                         $logs['template_id']=$template->id ?? null;
                         $logs['reply_to_message_id']=$incomingMessageId;
                         $logs['conversation_id']=$conversationId;
-                        $this->saveLog($logs);
-
                         $response= $this->messageSend($body,$device->id,$request_from,$template->type,true);
+                        $logs['whatsapp_message_id']=$response['whatsapp_message_id'] ?? null;
+                        $this->saveLog($logs);
                         return response()->json([
                             'message'  => $body,
                             'receiver' => $request->from,

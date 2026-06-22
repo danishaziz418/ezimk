@@ -61,6 +61,9 @@ trait Whatsapp
             }
             else{
                 $responseData['status'] = 200;
+                $responseBody = json_decode($response->body());
+                $responseData['data'] = $responseBody->data ?? null;
+                $responseData['whatsapp_message_id'] = $responseBody->data->key->id ?? null;
             }
 
             return $responseData;
@@ -494,6 +497,7 @@ trait Whatsapp
                 'type' => 'MESSAGE_SENT',
                 'data' => [
                     'message_id' => $log->id,
+                    'whatsapp_message_id' => $context['whatsapp_message_id'] ?? null,
                     'request_type' => $log->type,
                     'app_id' => $log->app_id,
                     'template_id' => $log->template_id,
