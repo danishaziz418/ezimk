@@ -219,18 +219,32 @@ class BulkController extends Controller
        $device_id=$device_id;
        
        if (isset($request->data[0]['message'])) {
-            $message = $request->data[0]['message']['conversation'] ?? null;
+            $incomingMessage = $request->data[0];
+            $incomingKey = $incomingMessage['key'] ?? [];
+            $messageData = $incomingMessage['message'] ?? [];
+            $message = $this->extractIncomingMessageText($messageData);
+            $replyContext = $this->extractIncomingReplyContext($messageData);
+            $incomingMessageId = $incomingKey['id'] ?? null;
+            $conversationId = $incomingKey['remoteJidAlt'] ?? $incomingKey['remoteJid'] ?? null;
+            $receivedAt = isset($incomingMessage['messageTimestamp'])
+                ? Carbon::createFromTimestamp((int) $incomingMessage['messageTimestamp'])->toDateTimeString()
+                : now()->toDateTimeString();
 
             if($device->hook_url){
             $payload = [
                 'payload' => [
                     'type' => 'MESSAGE_RECEIVED',
                     'data' => [
+                        'message_id' => $incomingMessageId,
+                        'conversation_id' => $conversationId,
                         'from' => $request_from ?? '',
                         'to' => $device->phone ?? '',
                         'device_id' => $device->id,
                         'message' => $message ?? '',
-                        'received_at' => now()->toDateTimeString(),
+                        'received_at' => $receivedAt,
+                        'reply_to_message_id' => $replyContext['message_id'],
+                        'reply_to_sender' => $replyContext['sender'],
+                        'reply_to_message' => $replyContext['message'],
                     ],
                 ],
                 'sender' => $request_from ?? '',
@@ -282,6 +296,8 @@ class BulkController extends Controller
                   $logs['from']=$device->phone ?? null;
                   $logs['to']=$request_from;
                   $logs['type']='chatbot';
+                  $logs['reply_to_message_id']=$incomingMessageId;
+                  $logs['conversation_id']=$conversationId;
                   $this->saveLog($logs);
                  
                 $body= array('text' => $reply->reply);
@@ -317,6 +333,8 @@ class BulkController extends Controller
                         $logs['to']=$request_from;
                         $logs['type']='chatbot';
                         $logs['template_id']=$template->id ?? null;
+                        $logs['reply_to_message_id']=$incomingMessageId;
+                        $logs['conversation_id']=$conversationId;
                         $this->saveLog($logs);
 
                         $response= $this->messageSend($body,$device->id,$request_from,$template->type,true);
@@ -351,5 +369,46 @@ class BulkController extends Controller
         }
 
         $hook->save();
+    }
+
+    private function extractIncomingMessageText(array $message): ?string
+    {
+        $text = $message['conversation']
+            ?? $message['extendedTextMessage']['text']
+            ?? $message['imageMessage']['caption']
+            ?? $message['videoMessage']['caption']
+            ?? $message['documentMessage']['caption']
+            ?? null;
+
+        if ($text === null && isset($message['ephemeralMessage']['message'])) {
+            return $this->extractIncomingMessageText($message['ephemeralMessage']['message']);
+        }
+
+        if ($text === null && isset($message['viewOnceMessage']['message'])) {
+            return $this->extractIncomingMessageText($message['viewOnceMessage']['message']);
+        }
+
+        if ($text === null && isset($message['viewOnceMessageV2']['message'])) {
+            return $this->extractIncomingMessageText($message['viewOnceMessageV2']['message']);
+        }
+
+        return $text;
+    }
+
+    private function extractIncomingReplyContext(array $message): array
+    {
+        $contextInfo = $message['extendedTextMessage']['contextInfo']
+            ?? $message['imageMessage']['contextInfo']
+            ?? $message['videoMessage']['contextInfo']
+            ?? $message['documentMessage']['contextInfo']
+            ?? [];
+
+        $quotedMessage = $contextInfo['quotedMessage'] ?? [];
+
+        return [
+            'message_id' => $contextInfo['stanzaId'] ?? null,
+            'sender' => $contextInfo['participant'] ?? null,
+            'message' => is_array($quotedMessage) ? $this->extractIncomingMessageText($quotedMessage) : null,
+        ];
     }
 }

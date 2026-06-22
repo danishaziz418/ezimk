@@ -474,10 +474,10 @@ trait Whatsapp
         $log->type = $data['type'] ?? null;
         $log->save();
 
-        $this->dispatchMessageWebhook($log);
+        $this->dispatchMessageWebhook($log, $data);
     }
 
-    private function dispatchMessageWebhook(Smstransaction $log): void
+    private function dispatchMessageWebhook(Smstransaction $log, array $context = []): void
     {
         if (empty($log->device_id)) {
             return;
@@ -506,6 +506,14 @@ trait Whatsapp
             'sender' => $log->from ?? '',
             'receiver' => $log->to ?? '',
         ];
+
+        if (!empty($context['reply_to_message_id'])) {
+            $payload['payload']['data']['reply_to_message_id'] = $context['reply_to_message_id'];
+        }
+
+        if (!empty($context['conversation_id'])) {
+            $payload['payload']['data']['conversation_id'] = $context['conversation_id'];
+        }
 
         $hook = new Webhook;
         $hook->device_id = $device->id;
