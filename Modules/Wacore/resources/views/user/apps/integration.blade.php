@@ -292,8 +292,38 @@ print(response.text)
     "data": {
         "from": "SENDER_NUMBER",
         "to": "RECEIVER_NUMBER",
+        "whatsapp_message_id": "3EB0XXXXXXXXXXXXXXXXXX",
         "status_code": 200
     }
+}
+</code>
+                    </pre>
+
+                    <h3 class="font-weight-bolder">{{__('Incoming Reply Webhook (sent to your device webhook URL)')}}</h3>
+                    <p class="text-muted">{{__('When someone replies to your message, a webhook is fired to your device\'s configured webhook URL. Use reply_to_message_id to match the reply to your original sent message (whatsapp_message_id).')}}</p>
+                    <pre>
+<code>
+{
+    "payload": {
+        "type": "MESSAGE_RECEIVED",
+        "data": {
+            "message_id": "INCOMING_MSG_ID",
+            "conversation_id": "PHONE@s.whatsapp.net",
+            "from": "SENDER_NUMBER",
+            "to": "YOUR_DEVICE_NUMBER",
+            "device_id": 1,
+            "message": "This is the reply text",
+            "received_at": "2024-01-01 12:00:00",
+            "reply_to_message_id": "3EB0XXXXXXXXXXXXXXXXXX",
+            "reply_to_sender": null,
+            "reply_to_message": "Original message text",
+            "app_id": "YOUR_APP_UUID",
+            "app_key": "YOUR_APP_KEY",
+            "original_transaction_id": 42
+        }
+    },
+    "sender": "SENDER_NUMBER",
+    "receiver": "YOUR_DEVICE_NUMBER"
 }
 </code>
                     </pre>

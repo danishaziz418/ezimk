@@ -475,6 +475,9 @@ trait Whatsapp
         $log->to = $data['to'] ?? null;
         $log->template_id = $data['template_id'] ?? null;
         $log->type = $data['type'] ?? null;
+        $log->whatsapp_message_id = $data['whatsapp_message_id'] ?? null;
+        $log->reply_to_message_id = $data['reply_to_message_id'] ?? null;
+        $log->conversation_id = $data['conversation_id'] ?? null;
         $log->save();
 
         $this->dispatchMessageWebhook($log, $data);

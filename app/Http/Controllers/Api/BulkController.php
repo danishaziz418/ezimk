@@ -130,7 +130,8 @@ class BulkController extends Controller
 
                 return response()->json(['message_status'=>'Success','data'=>[
                     'from'=>$app->device->phone ?? null,
-                    'to'=>$request->to,                
+                    'to'=>$request->to,
+                    'whatsapp_message_id'=>$response['whatsapp_message_id'] ?? null,
                     'status_code'=>200,
                 ]],200);
             }
@@ -232,33 +233,44 @@ class BulkController extends Controller
                 : now()->toDateTimeString();
 
             if($device->hook_url && $message !== null){
-            $payload = [
-                'payload' => [
-                    'type' => 'MESSAGE_RECEIVED',
-                    'data' => [
-                        'message_id' => $incomingMessageId,
-                        'conversation_id' => $conversationId,
-                        'from' => $request_from ?? '',
-                        'to' => $device->phone ?? '',
-                        'device_id' => $device->id,
-                        'message' => $message ?? '',
-                        'received_at' => $receivedAt,
-                        'reply_to_message_id' => $replyContext['message_id'],
-                        'reply_to_sender' => $replyContext['sender'],
-                        'reply_to_message' => $replyContext['message'],
-                    ],
-                ],
-                'sender' => $request_from ?? '',
-                'receiver' => $device->phone ?? '',
-            ];
-            $hook = new Webhook;
-            $hook->device_id = $device->id;
-            $hook->user_id = $device->user_id;
-            $hook->payload = json_encode($payload);
-            $hook->hook = $device->hook_url;
-            $hook->save();
-            $this->dispatchWebhook($hook);
+                $originalTransaction = null;
+                if (!empty($replyContext['message_id'])) {
+                    $originalTransaction = Smstransaction::where('device_id', $device->id)
+                        ->where('whatsapp_message_id', $replyContext['message_id'])
+                        ->with('app')
+                        ->first();
+                }
 
+                $enrichedData = $request->all();
+                $enrichedData['message_received'] = [
+                    'message_id'              => $incomingMessageId,
+                    'conversation_id'         => $conversationId,
+                    'from'                    => $request_from ?? '',
+                    'to'                      => $device->phone ?? '',
+                    'device_id'               => $device->id,
+                    'message'                 => $message ?? '',
+                    'received_at'             => $receivedAt,
+                    'reply_to_message_id'     => $replyContext['message_id'],
+                    'reply_to_sender'         => $replyContext['sender'],
+                    'reply_to_message'        => $replyContext['message'],
+                    'app_id'                  => $originalTransaction?->app?->uuid ?? null,
+                    'app_key'                 => $originalTransaction?->app?->key ?? null,
+                    'original_transaction_id' => $originalTransaction?->id ?? null,
+                ];
+
+                $payload = [
+                    'payload'  => $enrichedData,
+                    'sender'   => $request_from ?? '',
+                    'receiver' => $device->phone ?? '',
+                ];
+
+                $hook = new Webhook;
+                $hook->device_id = $device->id;
+                $hook->user_id = $device->user_id;
+                $hook->payload = json_encode($payload);
+                $hook->hook = $device->hook_url;
+                $hook->save();
+                $this->dispatchWebhook($hook);
         }
 
        if ($device != null && $message != null) {
